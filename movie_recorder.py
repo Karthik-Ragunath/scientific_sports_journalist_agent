@@ -130,16 +130,20 @@ class MovieRecorder:
                 "ffmpeg",
                 "-y",
                 "-f", "avfoundation",
-                "-framerate", str(self.fps),
                 "-capture_cursor", "1",
+                "-framerate", "30",
                 "-i", f"1:{self.audio_device}",  # Screen 1 + audio device
                 "-t", str(self.segment_duration),  # Time limit for clean exit
+                "-vf", f"fps={self.fps}",  # Force output fps (fixes speed)
                 "-c:v", "libx264",
                 "-preset", "veryfast",
                 "-crf", crf,
                 "-pix_fmt", "yuv420p",
-                "-c:a", "aac",  # Audio codec
-                "-b:a", "128k",  # Audio bitrate
+                "-c:a", "aac",
+                "-b:a", "256k",  # Higher audio bitrate
+                "-ar", "48000",  # 48kHz sample rate
+                "-ac", "2",  # Stereo
+                "-af", "aresample=async=1",  # Sync audio to video
                 "-movflags", "+faststart",
                 output_file
             ]
@@ -159,6 +163,8 @@ class MovieRecorder:
                 "-preset", "veryfast",
                 "-crf", crf,
                 "-pix_fmt", "yuv420p",
+                "-r", str(self.fps),
+                "-vsync", "cfr",
                 "-c:a", "aac",
                 "-b:a", "128k",
                 "-movflags", "+faststart",
@@ -178,6 +184,8 @@ class MovieRecorder:
                 "-preset", "veryfast",
                 "-crf", crf,
                 "-pix_fmt", "yuv420p",
+                "-r", str(self.fps),
+                "-vsync", "cfr",
                 "-c:a", "aac",
                 "-b:a", "128k",
                 "-movflags", "+faststart",
