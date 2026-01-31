@@ -238,13 +238,14 @@ class MovieRecorder:
     def __init__(self, output_dir: str, segment_duration: int = 60, 
                  fps: int = 30, quality: str = "medium", 
                  audio_device: str = None, uploader: S3Uploader = None,
-                 audio_processor: AudioProcessor = None):
+                 audio_processor: AudioProcessor = None, screen_index: int = 1):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.segment_duration = segment_duration
         self.fps = fps
         self.quality = quality
         self.audio_device = audio_device or "BlackHole 2ch"
+        self.screen_index = screen_index  # Which screen to capture (1=main, 2=second monitor, etc.)
         self.uploader = uploader
         self.audio_processor = audio_processor
         self.running = False
@@ -275,7 +276,7 @@ class MovieRecorder:
                 "-f", "avfoundation",
                 "-capture_cursor", "1",
                 "-framerate", "30",
-                "-i", f"1:{self.audio_device}",
+                "-i", f"{self.screen_index}:{self.audio_device}",  # screen_index:audio_device
                 "-t", str(self.segment_duration),
                 "-vf", f"fps={self.fps}",
                 "-c:v", "libx264",
@@ -474,6 +475,8 @@ def main():
     parser.add_argument("--quality", choices=["low", "medium", "high"], default="medium")
     parser.add_argument("--audio-device", default="BlackHole 2ch",
                         help="Audio device (macOS: 'BlackHole 2ch')")
+    parser.add_argument("--screen", type=int, default=1,
+                        help="Screen index to capture (1=main display, 2=second monitor, etc.)")
     parser.add_argument("--gemini-api-key", default=None,
                         help="Gemini API key (or set GEMINI_API_KEY env var)")
     parser.add_argument("--no-transcribe", action="store_true",
@@ -491,6 +494,7 @@ def main():
     print(f"FPS: {args.fps}")
     print(f"Quality: {args.quality}")
     print(f"Audio Device: {args.audio_device}")
+    print(f"Screen Index: {args.screen}")
     print(f"Transcription: {'Disabled' if args.no_transcribe else 'Enabled'}")
     print("=" * 60)
     print("Press Ctrl+C to stop recording\n")
@@ -512,7 +516,8 @@ def main():
         args.quality,
         args.audio_device,
         uploader,
-        audio_processor
+        audio_processor,
+        args.screen
     )
     
     def signal_handler(sig, frame):
