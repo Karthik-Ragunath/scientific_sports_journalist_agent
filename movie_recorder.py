@@ -1,9 +1,9 @@
 """
-Movie Recorder with S3 Upload
-Records screen WITH AUDIO continuously and uploads segments to S3.
+Movie Recorder with S3 Upload + Audio Extraction + Transcription
+Records screen WITH AUDIO, extracts audio separately, and generates transcriptions.
 
 Requirements:
-    pip install boto3
+    pip install boto3 google-genai python-dotenv
 
 System requirement:
     ffmpeg must be installed (brew install ffmpeg)
@@ -14,6 +14,9 @@ Audio setup (macOS):
     3. Click + → Create Multi-Output Device
     4. Check both your speakers/headphones AND BlackHole 2ch
     5. Right-click Multi-Output Device → Use This Device For Sound Output
+
+Environment:
+    Set GEMINI_API_KEY in .env file or environment variable
 
 Usage:
     python movie_recorder.py --segment-duration 60
@@ -32,6 +35,20 @@ from pathlib import Path
 from queue import Queue
 import boto3
 from botocore.exceptions import ClientError
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+# Try to import Google GenAI for transcription
+try:
+    from google import genai
+    from google.genai import types
+    GENAI_AVAILABLE = True
+except ImportError:
+    GENAI_AVAILABLE = False
+    print("[WARNING] google-genai not installed. Transcription will be disabled.")
+    print("         Install with: pip install google-genai")
 
 
 class S3Uploader:
@@ -64,11 +81,23 @@ class S3Uploader:
             return
             
         file_name = os.path.basename(file_path)
-        s3_key = f"{self.prefix}/{file_name}"
+        
+        # Determine subfolder based on file type
+        if file_path.endswith('.mp4'):
+            subfolder = "videos"
+        elif file_path.endswith('.mp3'):
+            subfolder = "audio"
+        elif file_path.endswith('.txt'):
+            subfolder = "transcripts"
+        else:
+            subfolder = "other"
+        
+        s3_key = f"{self.prefix}/{subfolder}/{file_name}"
         
         try:
             file_size = os.path.getsize(file_path)
-            print(f"[UPLOAD] Uploading {file_name} ({file_size / 1024 / 1024:.1f} MB) to s3://{self.bucket_name}/{s3_key}")
+            size_str = f"{file_size / 1024 / 1024:.1f} MB" if file_size > 1024*1024 else f"{file_size / 1024:.1f} KB"
+            print(f"[UPLOAD] Uploading {file_name} ({size_str}) to s3://{self.bucket_name}/{s3_key}")
             self.s3_client.upload_file(file_path, self.bucket_name, s3_key)
             print(f"[UPLOAD] ✓ Completed: {file_name}")
             
@@ -87,22 +116,137 @@ class S3Uploader:
         """Stop the uploader and wait for pending uploads."""
         print(f"[UPLOAD] Waiting for {self.upload_queue.qsize()} pending uploads...")
         self.running = False
-        self.upload_thread.join(timeout=120)
+        self.upload_thread.join(timeout=180)
+
+
+class AudioProcessor:
+    """Handles audio extraction and transcription."""
+    
+    def __init__(self, api_key: str = None):
+        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
+        self.client = None
+        
+        if GENAI_AVAILABLE and self.api_key:
+            try:
+                # Use v1alpha API version for latest features
+                self.client = genai.Client(
+                    api_key=self.api_key,
+                    http_options={
+                        'api_version': 'v1alpha',
+                        'timeout': 300_000,  # 5 minutes for transcription
+                    }
+                )
+                print("[TRANSCRIBE] Gemini transcription enabled")
+            except Exception as e:
+                print(f"[TRANSCRIBE] Failed to initialize Gemini: {e}")
+                self.client = None
+        elif not self.api_key:
+            print("[TRANSCRIBE] No GEMINI_API_KEY found. Transcription disabled.")
+    
+    def extract_audio(self, video_path: str) -> str:
+        """Extract audio from video file to MP3."""
+        audio_path = video_path.replace('.mp4', '.mp3')
+        
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-i", video_path,
+            "-vn",  # No video
+            "-acodec", "libmp3lame",
+            "-ab", "192k",  # Audio bitrate
+            "-ar", "44100",  # Sample rate
+            "-ac", "2",  # Stereo
+            audio_path
+        ]
+        
+        try:
+            print(f"[AUDIO] Extracting audio from {os.path.basename(video_path)}...")
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=60
+            )
+            
+            if result.returncode == 0 and os.path.exists(audio_path):
+                print(f"[AUDIO] ✓ Extracted: {os.path.basename(audio_path)}")
+                return audio_path
+            else:
+                print(f"[AUDIO] ✗ Failed to extract audio")
+                return None
+        except subprocess.TimeoutExpired:
+            print(f"[AUDIO] ✗ Timeout extracting audio")
+            return None
+        except Exception as e:
+            print(f"[AUDIO] ✗ Error: {e}")
+            return None
+    
+    def transcribe(self, audio_path: str) -> str:
+        """Transcribe audio file using Gemini."""
+        if not self.client:
+            print("[TRANSCRIBE] Transcription not available (no API key or client)")
+            return None
+        
+        transcript_path = audio_path.replace('.mp3', '_transcript.txt')
+        
+        try:
+            print(f"[TRANSCRIBE] Transcribing {os.path.basename(audio_path)}...")
+            
+            # Upload audio file to Gemini
+            with open(audio_path, 'rb') as f:
+                audio_data = f.read()
+            
+            # Create the transcription request using working pattern
+            response = self.client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=[
+                    types.Content(
+                        parts=[
+                            types.Part.from_bytes(
+                                data=audio_data,
+                                mime_type="audio/mp3"
+                            ),
+                            types.Part(text="Please transcribe this audio accurately. "
+                                "Include all spoken words. "
+                                "Format the output as plain text with proper punctuation. "
+                                "If there are multiple speakers, try to indicate speaker changes.")
+                        ]
+                    )
+                ]
+            )
+            
+            transcript = response.text
+            
+            # Save transcript to file
+            with open(transcript_path, 'w', encoding='utf-8') as f:
+                f.write(f"Transcription of: {os.path.basename(audio_path)}\n")
+                f.write(f"Generated at: {datetime.now().isoformat()}\n")
+                f.write("=" * 60 + "\n\n")
+                f.write(transcript)
+            
+            print(f"[TRANSCRIBE] ✓ Saved: {os.path.basename(transcript_path)}")
+            return transcript_path
+            
+        except Exception as e:
+            print(f"[TRANSCRIBE] ✗ Error: {e}")
+            return None
 
 
 class MovieRecorder:
-    """Records screen WITH AUDIO in segments - each segment is a separate ffmpeg run."""
+    """Records screen WITH AUDIO in segments with audio extraction and transcription."""
     
     def __init__(self, output_dir: str, segment_duration: int = 60, 
                  fps: int = 30, quality: str = "medium", 
-                 audio_device: str = None, uploader: S3Uploader = None):
+                 audio_device: str = None, uploader: S3Uploader = None,
+                 audio_processor: AudioProcessor = None):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.segment_duration = segment_duration
         self.fps = fps
         self.quality = quality
-        self.audio_device = audio_device or "BlackHole 2ch"  # Default for macOS
+        self.audio_device = audio_device or "BlackHole 2ch"
         self.uploader = uploader
+        self.audio_processor = audio_processor
         self.running = False
         self.current_process = None
         self.segment_count = 0
@@ -125,25 +269,24 @@ class MovieRecorder:
         crf = self.quality_presets.get(self.quality, "23")
         
         if sys.platform == "darwin":  # macOS
-            # Record screen (input 1) with audio from BlackHole
             cmd = [
                 "ffmpeg",
                 "-y",
                 "-f", "avfoundation",
                 "-capture_cursor", "1",
                 "-framerate", "30",
-                "-i", f"1:{self.audio_device}",  # Screen 1 + audio device
-                "-t", str(self.segment_duration),  # Time limit for clean exit
-                "-vf", f"fps={self.fps}",  # Force output fps (fixes speed)
+                "-i", f"1:{self.audio_device}",
+                "-t", str(self.segment_duration),
+                "-vf", f"fps={self.fps}",
                 "-c:v", "libx264",
                 "-preset", "veryfast",
                 "-crf", crf,
                 "-pix_fmt", "yuv420p",
                 "-c:a", "aac",
-                "-b:a", "256k",  # Higher audio bitrate
-                "-ar", "48000",  # 48kHz sample rate
-                "-ac", "2",  # Stereo
-                "-af", "aresample=async=1",  # Sync audio to video
+                "-b:a", "256k",
+                "-ar", "48000",
+                "-ac", "2",
+                "-af", "aresample=async=1",
                 "-movflags", "+faststart",
                 output_file
             ]
@@ -157,16 +300,18 @@ class MovieRecorder:
                 "-video_size", resolution,
                 "-i", ":0.0",
                 "-f", "pulse",
-                "-i", "default",  # PulseAudio default
+                "-i", "default",
                 "-t", str(self.segment_duration),
+                "-vf", f"fps={self.fps}",
                 "-c:v", "libx264",
                 "-preset", "veryfast",
                 "-crf", crf,
                 "-pix_fmt", "yuv420p",
-                "-r", str(self.fps),
-                "-vsync", "cfr",
                 "-c:a", "aac",
-                "-b:a", "128k",
+                "-b:a", "256k",
+                "-ar", "48000",
+                "-ac", "2",
+                "-af", "aresample=async=1",
                 "-movflags", "+faststart",
                 output_file
             ]
@@ -178,16 +323,18 @@ class MovieRecorder:
                 "-framerate", str(self.fps),
                 "-i", "desktop",
                 "-f", "dshow",
-                "-i", f"audio={self.audio_device}",  # Windows audio device
+                "-i", f"audio={self.audio_device}",
                 "-t", str(self.segment_duration),
+                "-vf", f"fps={self.fps}",
                 "-c:v", "libx264",
                 "-preset", "veryfast",
                 "-crf", crf,
                 "-pix_fmt", "yuv420p",
-                "-r", str(self.fps),
-                "-vsync", "cfr",
                 "-c:a", "aac",
-                "-b:a", "128k",
+                "-b:a", "256k",
+                "-ar", "48000",
+                "-ac", "2",
+                "-af", "aresample=async=1",
                 "-movflags", "+faststart",
                 output_file
             ]
@@ -203,7 +350,6 @@ class MovieRecorder:
             stderr=subprocess.DEVNULL
         )
         
-        # Wait for ffmpeg to finish (time limit reached or stopped)
         try:
             self.current_process.wait()
             return self.current_process.returncode == 0
@@ -223,28 +369,45 @@ class MovieRecorder:
             pass
         return "1920x1080"
     
+    def _process_segment(self, video_path: str):
+        """Process a completed segment: extract audio, transcribe, upload all."""
+        # Upload video
+        if self.uploader:
+            self.uploader.queue_upload(video_path)
+        
+        # Extract audio
+        if self.audio_processor:
+            audio_path = self.audio_processor.extract_audio(video_path)
+            
+            if audio_path:
+                # Upload audio
+                if self.uploader:
+                    self.uploader.queue_upload(audio_path)
+                
+                # Transcribe
+                transcript_path = self.audio_processor.transcribe(audio_path)
+                
+                if transcript_path and self.uploader:
+                    self.uploader.queue_upload(transcript_path)
+    
     def _recording_loop(self):
         """Main recording loop - records segments until stopped."""
         while self.running:
             output_file = self._get_output_filename()
             
-            # Record one segment
             success = self._record_segment(output_file)
             
             if success and os.path.exists(output_file) and os.path.getsize(output_file) > 1000:
                 print(f"[RECORDER] ✓ Segment {self.segment_count} complete: {os.path.basename(output_file)}")
                 
-                # Queue for upload
-                if self.uploader:
-                    self.uploader.queue_upload(output_file)
+                # Process segment (extract audio, transcribe, upload)
+                self._process_segment(output_file)
                 
                 self.segment_count += 1
             elif not self.running:
-                # We were stopped mid-recording
                 if os.path.exists(output_file) and os.path.getsize(output_file) > 1000:
                     print(f"[RECORDER] Final segment saved: {os.path.basename(output_file)}")
-                    if self.uploader:
-                        self.uploader.queue_upload(output_file)
+                    self._process_segment(output_file)
                 break
             else:
                 print(f"[RECORDER] Warning: Segment {self.segment_count} may have issues")
@@ -260,8 +423,9 @@ class MovieRecorder:
         print(f"[RECORDER] Segment duration: {self.segment_duration} seconds")
         print(f"[RECORDER] Output directory: {self.output_dir}")
         print(f"[RECORDER] Quality: {self.quality} (CRF {self.quality_presets.get(self.quality, '23')})")
+        print(f"[RECORDER] Audio extraction: Enabled")
+        print(f"[RECORDER] Transcription: {'Enabled' if self.audio_processor and self.audio_processor.client else 'Disabled'}")
         
-        # Start recording in background thread
         self.record_thread = threading.Thread(target=self._recording_loop, daemon=True)
         self.record_thread.start()
     
@@ -270,7 +434,6 @@ class MovieRecorder:
         print("[RECORDER] Stopping recording...")
         self.running = False
         
-        # Stop current ffmpeg process if running
         if self.current_process and self.current_process.poll() is None:
             print("[RECORDER] Stopping current segment...")
             try:
@@ -292,7 +455,6 @@ class MovieRecorder:
                 except Exception:
                     pass
         
-        # Wait for recording thread to finish
         if self.record_thread:
             self.record_thread.join(timeout=5)
         
@@ -302,7 +464,7 @@ class MovieRecorder:
 def main():
     default_output = os.path.expanduser("~/Downloads/dhivya/gemini-superbowl/movie_recordings")
     
-    parser = argparse.ArgumentParser(description="Movie recorder (screen + audio) with S3 upload")
+    parser = argparse.ArgumentParser(description="Movie recorder with audio extraction and transcription")
     parser.add_argument("--bucket", default="sa-hr-docs-qtest", help="S3 bucket name")
     parser.add_argument("--region", default="us-east-1", help="AWS region")
     parser.add_argument("--prefix", default="recordings", help="S3 key prefix")
@@ -311,12 +473,16 @@ def main():
     parser.add_argument("--fps", type=int, default=30, help="Frames per second")
     parser.add_argument("--quality", choices=["low", "medium", "high"], default="medium")
     parser.add_argument("--audio-device", default="BlackHole 2ch",
-                        help="Audio device (macOS: 'BlackHole 2ch', Linux: 'default', Windows: 'Stereo Mix')")
+                        help="Audio device (macOS: 'BlackHole 2ch')")
+    parser.add_argument("--gemini-api-key", default=None,
+                        help="Gemini API key (or set GEMINI_API_KEY env var)")
+    parser.add_argument("--no-transcribe", action="store_true",
+                        help="Disable transcription")
     
     args = parser.parse_args()
     
     print("=" * 60)
-    print("MOVIE RECORDER (SCREEN + AUDIO) WITH S3 UPLOAD")
+    print("MOVIE RECORDER + AUDIO + TRANSCRIPTION")
     print("=" * 60)
     print(f"Bucket: {args.bucket}")
     print(f"Region: {args.region}")
@@ -325,25 +491,34 @@ def main():
     print(f"FPS: {args.fps}")
     print(f"Quality: {args.quality}")
     print(f"Audio Device: {args.audio_device}")
+    print(f"Transcription: {'Disabled' if args.no_transcribe else 'Enabled'}")
     print("=" * 60)
     print("Press Ctrl+C to stop recording\n")
     
     # Initialize components
     uploader = S3Uploader(args.bucket, args.region, args.prefix)
+    
+    audio_processor = None
+    if not args.no_transcribe:
+        audio_processor = AudioProcessor(api_key=args.gemini_api_key)
+    else:
+        # Still create processor for audio extraction, just without transcription
+        audio_processor = AudioProcessor(api_key=None)
+    
     recorder = MovieRecorder(
         args.output_dir, 
         args.segment_duration, 
         args.fps, 
         args.quality,
         args.audio_device,
-        uploader
+        uploader,
+        audio_processor
     )
     
-    # Handle graceful shutdown
     def signal_handler(sig, frame):
         print("\n[MAIN] Shutting down...")
         recorder.stop()
-        time.sleep(2)
+        time.sleep(3)
         uploader.stop()
         print("[MAIN] Shutdown complete.")
         print(f"[MAIN] Recordings saved in: {args.output_dir}")
@@ -352,10 +527,8 @@ def main():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
-    # Start recording
     recorder.start()
     
-    # Keep main thread alive
     while True:
         time.sleep(1)
 
