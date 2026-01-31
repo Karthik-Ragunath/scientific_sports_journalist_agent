@@ -238,7 +238,8 @@ class MovieRecorder:
     def __init__(self, output_dir: str, segment_duration: int = 60, 
                  fps: int = 30, quality: str = "medium", 
                  audio_device: str = None, uploader: S3Uploader = None,
-                 audio_processor: AudioProcessor = None, screen_index: int = 1):
+                 audio_processor: AudioProcessor = None, screen_index: int = 1,
+                 accumulate: bool = False):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.segment_duration = segment_duration
@@ -248,10 +249,13 @@ class MovieRecorder:
         self.screen_index = screen_index  # Which screen to capture (1=main, 2=second monitor, etc.)
         self.uploader = uploader
         self.audio_processor = audio_processor
+        self.accumulate = accumulate  # Accumulate mode: each output contains all previous segments
         self.running = False
         self.current_process = None
         self.segment_count = 0
         self.record_thread = None
+        self.recorded_segments = []  # Track all recorded segment paths for accumulation
+        self.session_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         # Quality presets (CRF - lower = better quality)
         self.quality_presets = {
@@ -370,6 +374,64 @@ class MovieRecorder:
             pass
         return "1920x1080"
     
+    def _concatenate_segments(self) -> str:
+        """Concatenate all recorded segments into one accumulated file."""
+        if len(self.recorded_segments) == 0:
+            return None
+        
+        if len(self.recorded_segments) == 1:
+            # Just one segment, copy it as accumulated
+            src = self.recorded_segments[0]
+            accumulated_path = str(self.output_dir / f"accumulated_{self.session_timestamp}_{self.segment_count:03d}.mp4")
+            import shutil
+            shutil.copy2(src, accumulated_path)
+            return accumulated_path
+        
+        # Create a concat file list
+        concat_list_path = str(self.output_dir / f"_concat_list_{self.segment_count}.txt")
+        with open(concat_list_path, 'w') as f:
+            for seg_path in self.recorded_segments:
+                # Use absolute paths and escape single quotes
+                f.write(f"file '{seg_path}'\n")
+        
+        accumulated_path = str(self.output_dir / f"accumulated_{self.session_timestamp}_{self.segment_count:03d}.mp4")
+        
+        # Concatenate using ffmpeg
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-f", "concat",
+            "-safe", "0",
+            "-i", concat_list_path,
+            "-c", "copy",  # Copy streams without re-encoding (fast)
+            accumulated_path
+        ]
+        
+        try:
+            print(f"[ACCUMULATE] Creating accumulated video ({len(self.recorded_segments)} segments)...")
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=120
+            )
+            
+            # Clean up concat list file
+            os.remove(concat_list_path)
+            
+            if result.returncode == 0 and os.path.exists(accumulated_path):
+                duration = len(self.recorded_segments) * self.segment_duration
+                print(f"[ACCUMULATE] ✓ Created: {os.path.basename(accumulated_path)} (~{duration}s)")
+                return accumulated_path
+            else:
+                print(f"[ACCUMULATE] ✗ Failed to create accumulated video")
+                return None
+        except Exception as e:
+            print(f"[ACCUMULATE] ✗ Error: {e}")
+            if os.path.exists(concat_list_path):
+                os.remove(concat_list_path)
+            return None
+    
     def _process_segment(self, video_path: str):
         """Process a completed segment: extract audio, transcribe, upload all."""
         # Upload video
@@ -401,14 +463,29 @@ class MovieRecorder:
             if success and os.path.exists(output_file) and os.path.getsize(output_file) > 1000:
                 print(f"[RECORDER] ✓ Segment {self.segment_count} complete: {os.path.basename(output_file)}")
                 
-                # Process segment (extract audio, transcribe, upload)
-                self._process_segment(output_file)
+                if self.accumulate:
+                    # Accumulate mode: concatenate all segments and process accumulated video
+                    self.recorded_segments.append(output_file)
+                    accumulated_path = self._concatenate_segments()
+                    
+                    if accumulated_path:
+                        self._process_segment(accumulated_path)
+                else:
+                    # Normal mode: process each segment individually
+                    self._process_segment(output_file)
                 
                 self.segment_count += 1
             elif not self.running:
                 if os.path.exists(output_file) and os.path.getsize(output_file) > 1000:
                     print(f"[RECORDER] Final segment saved: {os.path.basename(output_file)}")
-                    self._process_segment(output_file)
+                    
+                    if self.accumulate:
+                        self.recorded_segments.append(output_file)
+                        accumulated_path = self._concatenate_segments()
+                        if accumulated_path:
+                            self._process_segment(accumulated_path)
+                    else:
+                        self._process_segment(output_file)
                 break
             else:
                 print(f"[RECORDER] Warning: Segment {self.segment_count} may have issues")
@@ -426,6 +503,7 @@ class MovieRecorder:
         print(f"[RECORDER] Quality: {self.quality} (CRF {self.quality_presets.get(self.quality, '23')})")
         print(f"[RECORDER] Audio extraction: Enabled")
         print(f"[RECORDER] Transcription: {'Enabled' if self.audio_processor and self.audio_processor.client else 'Disabled'}")
+        print(f"[RECORDER] Accumulate mode: {'Enabled' if self.accumulate else 'Disabled'}")
         
         self.record_thread = threading.Thread(target=self._recording_loop, daemon=True)
         self.record_thread.start()
@@ -481,6 +559,8 @@ def main():
                         help="Gemini API key (or set GEMINI_API_KEY env var)")
     parser.add_argument("--no-transcribe", action="store_true",
                         help="Disable transcription")
+    parser.add_argument("--accumulate", action="store_true",
+                        help="Accumulate mode: each output contains all previous segments (15s, 30s, 45s, etc.)")
     
     args = parser.parse_args()
     
@@ -496,6 +576,7 @@ def main():
     print(f"Audio Device: {args.audio_device}")
     print(f"Screen Index: {args.screen}")
     print(f"Transcription: {'Disabled' if args.no_transcribe else 'Enabled'}")
+    print(f"Accumulate Mode: {'Enabled' if args.accumulate else 'Disabled'}")
     print("=" * 60)
     print("Press Ctrl+C to stop recording\n")
     
@@ -517,7 +598,8 @@ def main():
         args.audio_device,
         uploader,
         audio_processor,
-        args.screen
+        args.screen,
+        args.accumulate
     )
     
     def signal_handler(sig, frame):
