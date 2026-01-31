@@ -1,0 +1,5 @@
+Audio Midi:
+both mics
+
+Sound:
+Aggregated output
