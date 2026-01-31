@@ -4,3 +4,7 @@ boto3>=1.28.0
 mss>=9.0.0
 opencv-python>=4.8.0
 numpy>=1.24.0
+
+# Pipecat for real-time voice transcription with Gemini Live
+pipecat-ai[google]>=0.0.90
+pyaudio>=0.2.14
