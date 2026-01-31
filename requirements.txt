@@ -8,3 +8,8 @@ numpy>=1.24.0
 # Pipecat for real-time voice transcription with Gemini Live
 pipecat-ai[google]>=0.0.90
 pyaudio>=0.2.14
+
+# API dependencies
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
