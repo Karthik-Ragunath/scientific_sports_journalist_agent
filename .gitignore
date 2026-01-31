@@ -60,3 +60,6 @@ temp/
 
 # AWS
 .aws/
+
+# Frontend
+/frontend/node_modules/
