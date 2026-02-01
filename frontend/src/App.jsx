@@ -16,6 +16,7 @@ function App() {
   const [currentVideoUrl, setCurrentVideoUrl] = useState(null)
   const [recordingStatus, setRecordingStatus] = useState(null)
   const [error, setError] = useState(null)
+  const [tweetStatus, setTweetStatus] = useState({})
 
   // Check recording status on mount
   useEffect(() => {
@@ -129,6 +130,37 @@ function App() {
       console.error('Analysis error:', err)
     } finally {
       setIsProcessing(false)
+    }
+  }
+
+  const handleTweet = async (articleId, articleContent) => {
+    setTweetStatus(prev => ({ ...prev, [articleId]: 'posting' }))
+    setError(null)
+
+    try {
+      const response = await fetch(`${API_BASE}/api/tweet`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          article: articleContent,
+          auto_extract: true
+        })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setTweetStatus(prev => ({
+          ...prev,
+          [articleId]: { success: true, url: result.tweet_url }
+        }))
+      } else {
+        throw new Error(result.error || 'Failed to post tweet')
+      }
+    } catch (err) {
+      setError(err.message)
+      setTweetStatus(prev => ({ ...prev, [articleId]: 'error' }))
+      console.error('Tweet error:', err)
     }
   }
 
@@ -246,7 +278,12 @@ function App() {
               <span className="section-number">02</span>
               <h2>AI INSIGHTS</h2>
             </div>
-            <ArticleDisplay articles={articles} isProcessing={isProcessing} />
+            <ArticleDisplay
+              articles={articles}
+              isProcessing={isProcessing}
+              onTweet={handleTweet}
+              tweetStatus={tweetStatus}
+            />
           </motion.section>
         </div>
       </main>

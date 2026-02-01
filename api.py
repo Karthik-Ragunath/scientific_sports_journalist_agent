@@ -28,6 +28,7 @@ from dotenv import load_dotenv
 # Import our modules
 from movie_recorder import MovieRecorder, AudioProcessor
 from video_analyzer import VideoAnalyzer
+from twitter_service import TwitterService
 
 load_dotenv()
 
@@ -43,24 +44,35 @@ recorder_state = {
 # Initialize video analyzer
 video_analyzer = None
 
+# Initialize Twitter service (optional - may not be configured)
+twitter_service = None
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
-    global video_analyzer
-    
+    global video_analyzer, twitter_service
+
     # Setup output directory
     output_dir = os.path.expanduser("~/Downloads/sports_journalist_recordings")
     os.makedirs(output_dir, exist_ok=True)
     recorder_state["output_dir"] = output_dir
-    
+
     # Initialize video analyzer
     video_analyzer = VideoAnalyzer()
-    
+
+    # Initialize Twitter service (optional)
+    try:
+        twitter_service = TwitterService()
+        print("[API] Twitter service initialized")
+    except ValueError as e:
+        print(f"[API] Twitter service not configured: {e}")
+        twitter_service = None
+
     print(f"[API] Output directory: {output_dir}")
     print("[API] Server started successfully")
-    
+
     yield
-    
+
     # Cleanup on shutdown
     if recorder_state["recorder"] and recorder_state["is_recording"]:
         recorder_state["recorder"].stop()
@@ -111,6 +123,21 @@ class AnalysisResponse(BaseModel):
     analysis: Optional[str]
     thinking: Optional[str]
     error: Optional[str]
+
+
+class TweetRequest(BaseModel):
+    text: Optional[str] = None
+    article: Optional[str] = None
+    auto_extract: bool = True
+
+
+class TweetResponse(BaseModel):
+    success: bool
+    tweet_id: Optional[str] = None
+    tweet_url: Optional[str] = None
+    text: Optional[str] = None
+    character_count: Optional[int] = None
+    error: Optional[str] = None
 
 
 # ============== Recording Endpoints ==============
@@ -329,17 +356,75 @@ Format your response as a sports journalism article with markdown formatting."""
 async def transcribe_audio(audio: UploadFile = File(...)):
     """Transcribe audio file to text."""
     global video_analyzer
-    
+
     try:
         audio_content = await audio.read()
         transcribed_text = await video_analyzer.transcribe_audio(audio_content)
-        
+
         return {
             "success": True,
             "transcription": transcribed_text
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
+
+
+# ============== Twitter/X Endpoints ==============
+
+@app.post("/api/tweet", response_model=TweetResponse)
+async def post_tweet(request: TweetRequest):
+    """
+    Post a tweet to X (Twitter).
+
+    - text: Direct tweet text (max 280 chars)
+    - article: AI-generated article to extract tweet from
+    - auto_extract: If true, extract tweet-worthy content from article
+    """
+    global twitter_service
+
+    if twitter_service is None:
+        return TweetResponse(
+            success=False,
+            error="Twitter service not configured. Please set X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET in .env"
+        )
+
+    try:
+        # Option 1: Direct tweet text provided
+        if request.text:
+            result = twitter_service.post_tweet(request.text)
+
+        # Option 2: Extract from article
+        elif request.article:
+            if request.auto_extract:
+                result = twitter_service.post_tweet_from_article(request.article)
+            else:
+                # Use first 280 chars of article as fallback
+                result = twitter_service.post_tweet(request.article)
+
+        else:
+            return TweetResponse(
+                success=False,
+                error="Either 'text' or 'article' must be provided"
+            )
+
+        return TweetResponse(**result)
+
+    except Exception as e:
+        return TweetResponse(
+            success=False,
+            error=str(e)
+        )
+
+
+@app.get("/api/twitter/status")
+async def get_twitter_status():
+    """Check if Twitter service is configured and ready."""
+    global twitter_service
+
+    return {
+        "configured": twitter_service is not None,
+        "message": "Twitter service is ready" if twitter_service else "Twitter service not configured"
+    }
 
 
 # ============== Health Check ==============

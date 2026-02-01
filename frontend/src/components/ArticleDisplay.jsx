@@ -1,17 +1,51 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import './ArticleDisplay.css'
 
-function ArticleDisplay({ articles, isProcessing }) {
+function ArticleDisplay({ articles, isProcessing, onTweet, tweetStatus = {} }) {
   const containerRef = useRef(null)
-  
+  const [copiedId, setCopiedId] = useState(null)
+
   useEffect(() => {
     if (containerRef.current && articles.length > 0) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight
     }
   }, [articles])
+
+  const handleCopy = async (articleId, content) => {
+    try {
+      await navigator.clipboard.writeText(content)
+      setCopiedId(articleId)
+      setTimeout(() => setCopiedId(null), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
+
+  const getTweetButtonContent = (articleId) => {
+    const status = tweetStatus[articleId]
+    if (status === 'posting') {
+      return (
+        <svg className="spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="12" cy="12" r="10" strokeDasharray="60" strokeDashoffset="20" />
+        </svg>
+      )
+    }
+    if (status?.success) {
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+      )
+    }
+    return (
+      <svg viewBox="0 0 24 24" fill="currentColor">
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+      </svg>
+    )
+  }
 
   return (
     <div className="article-display" ref={containerRef}>
@@ -65,16 +99,39 @@ function ArticleDisplay({ articles, isProcessing }) {
               </div>
               <div className="article-footer">
                 <div className="share-buttons">
-                  <button className="share-btn twitter">
-                    <svg viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                    </svg>
+                  <button
+                    className={`share-btn twitter ${tweetStatus[article.id]?.success ? 'success' : ''} ${tweetStatus[article.id] === 'posting' ? 'loading' : ''}`}
+                    onClick={() => onTweet && onTweet(article.id, article.content)}
+                    disabled={tweetStatus[article.id] === 'posting' || tweetStatus[article.id]?.success}
+                    title={tweetStatus[article.id]?.success ? 'Posted to X!' : 'Post to X'}
+                  >
+                    {getTweetButtonContent(article.id)}
                   </button>
-                  <button className="share-btn copy">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="9" y="9" width="13" height="13" rx="2"/>
-                      <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
-                    </svg>
+                  {tweetStatus[article.id]?.success && (
+                    <a
+                      href={tweetStatus[article.id].url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="tweet-link"
+                    >
+                      View
+                    </a>
+                  )}
+                  <button
+                    className={`share-btn copy ${copiedId === article.id ? 'success' : ''}`}
+                    onClick={() => handleCopy(article.id, article.content)}
+                    title={copiedId === article.id ? 'Copied!' : 'Copy to clipboard'}
+                  >
+                    {copiedId === article.id ? (
+                      <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2"/>
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                      </svg>
+                    )}
                   </button>
                 </div>
               </div>
