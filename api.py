@@ -288,14 +288,16 @@ async def list_videos():
 async def analyze_video(
     audio: Optional[UploadFile] = File(None),
     video_path: Optional[str] = Form(None),
-    prompt: Optional[str] = Form(None)
+    prompt: Optional[str] = Form(None),
+    query: Optional[str] = Form(None)
 ):
     """
-    Analyze video with optional audio transcription.
+    Analyze video with optional audio transcription or text query.
     
     - audio: Audio file to transcribe (user's question about the play)
     - video_path: Path to video file to analyze (or uses latest recording)
     - prompt: Additional prompt/context for analysis
+    - query: Direct text query from user (alternative to audio)
     """
     global video_analyzer
     
@@ -313,25 +315,49 @@ async def analyze_video(
             else:
                 raise HTTPException(status_code=400, detail="No video available for analysis")
         
-        # Transcribe audio if provided
-        transcribed_text = None
-        if audio:
+        # Get user's question - either from text query or transcribed audio
+        user_question = query  # Use direct text query if provided
+        
+        # Transcribe audio if provided and no text query
+        if not user_question and audio:
             audio_content = await audio.read()
-            transcribed_text = await video_analyzer.transcribe_audio(audio_content)
+            user_question = await video_analyzer.transcribe_audio(audio_content)
         
-        # Build the analysis prompt
-        analysis_prompt = prompt or "Analyze this sports play with detailed insights."
+        # Build the analysis prompt with Todd Whitehead persona
+        base_prompt = """You are Todd Whitehead, a renowned sports data analyst known for:
+- Providing analysis and insight for @SynergySST and @Sportradar
+- Sharing basketball/sports data in fun and eye-catching ways
+- Creating concise, data-driven content with visual appeal
+
+IMPORTANT FORMATTING RULES:
+- Be CONCISE - no fluff or filler text
+- Use markdown TABLES to display stats and comparisons
+- Include ASCII charts or formatted data visualizations where helpful
+- Start directly with the analysis - NO preamble like "Okay, I can analyze..." or "Based on the video..."
+- Write in Todd's engaging, data-forward style
+
+"""
         
-        if transcribed_text:
-            analysis_prompt = f"""User's question about the play: "{transcribed_text}"
+        if user_question:
+            analysis_prompt = f"""{base_prompt}
+User's question: "{user_question}"
 
-Based on the video, please provide:
-1. A detailed answer to the user's question
-2. Key observations about the play
-3. Strategic analysis
-4. Generate a compelling tweet about this moment
+Provide:
+1. **Direct Answer** - Answer the question concisely
+2. **Key Stats** - Use a markdown table for any relevant numbers
+3. **Quick Analysis** - 2-3 bullet points max
+4. **Tweet** - A compelling tweet-worthy summary (280 chars max)
 
-Format your response as a sports journalism article with markdown formatting."""
+Remember: Be specific about what you observe. Use tables and visual formatting."""
+        else:
+            analysis_prompt = f"""{base_prompt}
+Analyze this play and provide:
+1. **Play Breakdown** - What happened (use a table if multiple players involved)
+2. **Key Metrics** - Any visible stats in table format
+3. **Strategic Insight** - 2-3 bullet points
+4. **Tweet** - A compelling summary (280 chars max)
+
+Remember: Be specific about what you observe. Use tables and visual formatting."""
         
         # Analyze the video
         result = await video_analyzer.analyze_video(video_path, analysis_prompt)
