@@ -14,13 +14,17 @@ An AI-powered sports journalism platform that analyzes live game footage in real
 
 **Watch the submission video to see Gridiron Vision in action:**
 
-📹 **[submission/submission_video.mp4](submission/submission_video.mp4)**
+<video src="submission/submission_video.mp4" controls width="100%">
+  Your browser does not support the video tag.
+</video>
 
-The demo showcases:
-- Real-time screen recording with audio capture
-- Voice and text-based queries about game plays
-- AI-powered analysis with data visualizations
-- Bay Area-themed UI for Super Bowl LX
+> 📹 If the video doesn't load above, view it directly: [submission/submission_video.mp4](submission/submission_video.mp4)
+
+**The demo showcases:**
+- ✅ Real-time screen recording with audio capture
+- ✅ Voice and text-based queries about game plays
+- ✅ AI-powered analysis with data visualizations
+- ✅ Bay Area-themed UI for Super Bowl LX
 
 ---
 
@@ -69,13 +73,25 @@ The demo showcases:
 
 | Component | Technology |
 |-----------|------------|
-| **AI Model** | Google Gemini 2.0 Flash |
+| **AI Models** | Google Gemini (see supported models below) |
 | **Voice AI** | Pipecat + Gemini Live (optional) |
 | **Backend** | FastAPI, Python 3.12+ |
 | **Frontend** | React, Vite, Framer Motion |
 | **Recording** | FFmpeg, AVFoundation (macOS) |
 | **Audio** | PyAudio, BlackHole 2ch |
 | **Storage** | AWS S3 (optional) |
+
+### Supported Gemini Models
+
+| Model | Use Case | Notes |
+|-------|----------|-------|
+| `gemini-2.0-flash` | Video analysis, transcription | **Default** - Fast & capable |
+| `gemini-2.0-flash-exp` | Experimental features | Multimodal live capabilities |
+| `gemini-2.0-flash-live` | Real-time streaming | Requires Gemini Live API access |
+| `gemini-2.0-pro` | Complex analysis | Higher quality, slower |
+| `gemini-3-pro-preview` | Latest capabilities | Preview access required |
+| `gemini-1.5-flash` | Fallback option | Stable, well-tested |
+| `gemini-1.5-pro` | High-quality analysis | Longer context window |
 
 ---
 
