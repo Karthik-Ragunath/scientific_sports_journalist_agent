@@ -1,0 +1,145 @@
+:root {
+  /* Bay Area / SF Theme for Super Bowl LX */
+  --bg-primary: #0a0f14;
+  --bg-secondary: #1a2332;
+  --bg-card: #141c28;
+  
+  /* Golden Gate Orange */
+  --orange: #c04000;
+  --orange-bright: #ff6b35;
+  --orange-glow: rgba(255, 107, 53, 0.3);
+  
+  /* Bay Blue / Pacific */
+  --bay-blue: #1e4d6b;
+  --bay-teal: #2dd4bf;
+  --pacific: #0891b2;
+  
+  /* SF Fog */
+  --fog: rgba(255, 255, 255, 0.08);
+  --fog-light: rgba(255, 255, 255, 0.15);
+  
+  /* Gold accents (Super Bowl) */
+  --gold: #d4af37;
+  --gold-light: #f4d03f;
+  
+  --red: #ef4444;
+  --text-primary: #f0f4f8;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-heading: 'Oswald', sans-serif;
+  --font-body: 'Source Serif 4', serif;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.app {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* Background Effects - SF/Bay Area inspired */
+.bg-grid {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    linear-gradient(rgba(192, 64, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(192, 64, 0, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.bg-gradient {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    /* Golden Gate glow top left */
+    radial-gradient(ellipse at 0% 0%, rgba(192, 64, 0, 0.2) 0%, transparent 50%),
+    /* Bay water glow bottom */
+    radial-gradient(ellipse at 50% 100%, rgba(30, 77, 107, 0.25) 0%, transparent 60%),
+    /* Fog effect */
+    radial-gradient(ellipse at 100% 30%, rgba(255, 255, 255, 0.05) 0%, transparent 40%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Golden Gate Bridge silhouette */
+.field-lines {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  background: linear-gradient(
+    to top,
+    rgba(30, 77, 107, 0.15) 0%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.field-lines::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--orange) 20%,
+    var(--orange-bright) 50%,
+    var(--orange) 80%,
+    transparent 100%
+  );
+  opacity: 0.6;
+}
+
+/* Animated fog overlay */
+.app::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: -100%;
+  width: 300%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.02) 25%,
+    rgba(255, 255, 255, 0.04) 50%,
+    rgba(255, 255, 255, 0.02) 75%,
+    transparent 100%
+  );
+  animation: fog-drift 30s linear infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@keyframes fog-drift {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(33.33%); }
+}
