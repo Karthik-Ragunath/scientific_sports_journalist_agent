@@ -4,6 +4,7 @@ import VideoPlayer from './components/VideoPlayer'
 import MicButton from './components/MicButton'
 import RecordButton from './components/RecordButton'
 import ArticleDisplay from './components/ArticleDisplay'
+import ChatInput from './components/ChatInput'
 import './App.css'
 
 const API_BASE = 'http://localhost:8000'
@@ -119,7 +120,8 @@ function App() {
           id: Date.now(),
           content: result.analysis,
           thinking: result.thinking,
-          timestamp: new Date().toLocaleTimeString()
+          timestamp: new Date().toLocaleTimeString(),
+          query: '🎤 Voice query'
         }])
       } else if (result.error) {
         throw new Error(result.error)
@@ -131,6 +133,52 @@ function App() {
       setIsProcessing(false)
     }
   }
+
+  const handleTextSubmit = async (message) => {
+    setIsProcessing(true)
+    setError(null)
+    
+    try {
+      const formData = new FormData()
+      formData.append('query', message)
+      
+      // If we have a current video, include its path
+      if (recordingStatus?.current_video) {
+        formData.append('video_path', recordingStatus.current_video)
+      }
+      
+      const response = await fetch(`${API_BASE}/api/analyze`, {
+        method: 'POST',
+        body: formData
+      })
+      
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.detail || 'Analysis failed')
+      }
+      
+      const result = await response.json()
+      
+      if (result.success && result.analysis) {
+        setArticles(prev => [...prev, {
+          id: Date.now(),
+          content: result.analysis,
+          thinking: result.thinking,
+          timestamp: new Date().toLocaleTimeString(),
+          query: message
+        }])
+      } else if (result.error) {
+        throw new Error(result.error)
+      }
+    } catch (err) {
+      setError(err.message)
+      console.error('Analysis error:', err)
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const inputDisabled = !currentVideoUrl && !isRecording
 
   return (
     <div className="app">
@@ -148,21 +196,43 @@ function App() {
       >
         <div className="logo-container">
           <div className="logo-icon">
-            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <ellipse cx="50" cy="50" rx="45" ry="28" stroke="currentColor" strokeWidth="4"/>
-              <path d="M50 22 L50 78" stroke="currentColor" strokeWidth="3"/>
-              <path d="M35 30 Q50 50 35 70" stroke="currentColor" strokeWidth="2"/>
-              <path d="M65 30 Q50 50 65 70" stroke="currentColor" strokeWidth="2"/>
+            {/* Golden Gate Bridge inspired icon */}
+            <svg viewBox="0 0 100 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* Left tower */}
+              <rect x="15" y="20" width="8" height="50" rx="1" fill="#c04000"/>
+              <rect x="17" y="15" width="4" height="8" rx="1" fill="#ff6b35"/>
+              
+              {/* Right tower */}
+              <rect x="77" y="20" width="8" height="50" rx="1" fill="#c04000"/>
+              <rect x="79" y="15" width="4" height="8" rx="1" fill="#ff6b35"/>
+              
+              {/* Main cables */}
+              <path d="M5 25 Q19 60 50 55 Q81 60 95 25" stroke="#ff6b35" strokeWidth="3" fill="none"/>
+              
+              {/* Deck */}
+              <rect x="5" y="60" width="90" height="6" rx="2" fill="#c04000"/>
+              
+              {/* Vertical cables */}
+              <line x1="25" y1="38" x2="25" y2="60" stroke="#ff6b35" strokeWidth="1.5"/>
+              <line x1="35" y1="48" x2="35" y2="60" stroke="#ff6b35" strokeWidth="1.5"/>
+              <line x1="50" y1="54" x2="50" y2="60" stroke="#ff6b35" strokeWidth="1.5"/>
+              <line x1="65" y1="48" x2="65" y2="60" stroke="#ff6b35" strokeWidth="1.5"/>
+              <line x1="75" y1="38" x2="75" y2="60" stroke="#ff6b35" strokeWidth="1.5"/>
+              
+              {/* Football overlay */}
+              <ellipse cx="50" cy="40" rx="18" ry="10" stroke="#d4af37" strokeWidth="2" fill="none" opacity="0.6"/>
+              <line x1="50" y1="30" x2="50" y2="50" stroke="#d4af37" strokeWidth="1.5" opacity="0.6"/>
             </svg>
           </div>
           <div className="logo-text">
             <h1>GRIDIRON VISION</h1>
-            <span className="tagline">AI SPORTS JOURNALISM</span>
+            <span className="tagline">BAY AREA • AI SPORTS JOURNALISM</span>
           </div>
         </div>
         <div className="super-bowl-badge">
           <span className="badge-text">SUPER BOWL</span>
           <span className="badge-number">LX</span>
+          <span className="badge-location">Levi's Stadium • Santa Clara</span>
         </div>
       </motion.header>
 
@@ -174,8 +244,15 @@ function App() {
         transition={{ delay: 0.3, duration: 0.6 }}
       >
         <blockquote>
-          "Where the game meets the algorithm. Every play, decoded."
+          "From the Golden Gate to the gridiron. Every play, decoded by AI."
         </blockquote>
+        <div className="location-tag">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          San Francisco Bay Area, California
+        </div>
       </motion.div>
 
       {/* Error Banner */}
@@ -209,7 +286,7 @@ function App() {
             </div>
             <VideoPlayer videoUrl={currentVideoUrl} isRecording={isRecording} />
             
-            {/* Recording & Mic Controls */}
+            {/* Recording Controls */}
             <div className="controls-container">
               <div className="controls-row">
                 <RecordButton 
@@ -217,21 +294,35 @@ function App() {
                   onStart={handleStartRecording}
                   onStop={handleStopRecording}
                 />
+                <div className="input-divider-vertical"></div>
                 <MicButton 
                   onAudioCapture={handleAudioCapture}
                   isRecording={isMicRecording}
                   setIsRecording={setIsMicRecording}
                   isProcessing={isProcessing}
-                  disabled={!currentVideoUrl && !isRecording}
+                  disabled={inputDisabled}
                 />
               </div>
+              
               <p className="control-hint">
                 {isRecording ? 'Recording screen... Click red button to stop' : 
                  isMicRecording ? 'Listening... Click mic to stop' :
                  isProcessing ? 'AI is analyzing the play...' : 
-                 currentVideoUrl ? 'Click mic to ask about the play' :
+                 currentVideoUrl ? 'Use mic or type below to ask about the play' :
                  'Click record to capture the game'}
               </p>
+
+              {/* Chat Input */}
+              <div className="chat-section">
+                <div className="input-divider">
+                  <span>or type your question</span>
+                </div>
+                <ChatInput 
+                  onSubmit={handleTextSubmit}
+                  isProcessing={isProcessing}
+                  disabled={inputDisabled}
+                />
+              </div>
             </div>
           </motion.section>
 
@@ -259,10 +350,15 @@ function App() {
         transition={{ delay: 1, duration: 0.5 }}
       >
         <div className="footer-content">
-          <p>POWERED BY GEMINI AI • SCIENTIFIC SPORTS JOURNALISM</p>
+          <p>POWERED BY GEMINI AI • BAY AREA SPORTS SCIENCE</p>
           <div className="footer-decoration">
-            <span></span><span></span><span></span>
+            <span></span>
+            <span></span>
+            <span></span>
           </div>
+          <span className="bay-badge">
+            🌉 Made in SF
+          </span>
         </div>
       </motion.footer>
     </div>

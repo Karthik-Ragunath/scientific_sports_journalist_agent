@@ -140,21 +140,9 @@ class VideoAnalyzer:
         }
         mime_type = mime_types.get(ext, 'video/mp4')
         
-        # Build the sports journalism prompt
-        full_prompt = f"""{prompt}
-
-Please format your response as a professional sports journalism article with:
-- A compelling headline
-- Key play breakdown with timestamps if visible
-- Strategic analysis
-- A quotable insight or tweet-worthy summary
-- Use markdown formatting for structure
-
-Be specific about what you observe in the video."""
-        
         # Configure generation
         config = types.GenerateContentConfig(
-            media_resolution='media_resolution_high',
+            media_resolution='media_resolution_medium',  # HIGH only works for single images, not videos
             temperature=0.3  # Slightly creative but factual
         )
         
@@ -173,7 +161,7 @@ Be specific about what you observe in the video."""
                             data=video_data,
                             mime_type=mime_type
                         ),
-                        types.Part(text=full_prompt)
+                        types.Part(text=prompt)
                     ]
                 )
             ],

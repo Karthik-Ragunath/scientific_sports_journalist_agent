@@ -1,4 +1,4 @@
-/* Header */
+/* Header - Bay Area Theme */
 .header {
   position: relative;
   z-index: 10;
@@ -6,21 +6,21 @@
   justify-content: space-between;
   align-items: center;
   padding: 24px 48px;
-  border-bottom: 1px solid rgba(212, 175, 55, 0.2);
-  background: linear-gradient(180deg, rgba(10, 10, 10, 0.95) 0%, rgba(10, 10, 10, 0.8) 100%);
-  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(192, 64, 0, 0.3);
+  background: linear-gradient(180deg, rgba(10, 15, 20, 0.98) 0%, rgba(10, 15, 20, 0.9) 100%);
+  backdrop-filter: blur(12px);
 }
 
 .logo-container {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
 }
 
 .logo-icon {
-  width: 60px;
-  height: 60px;
-  color: var(--gold);
+  width: 70px;
+  height: 70px;
+  position: relative;
 }
 
 .logo-icon svg {
@@ -28,53 +28,125 @@
   height: 100%;
 }
 
+/* Golden Gate Bridge icon colors */
+.logo-icon .bridge-tower {
+  fill: var(--orange);
+}
+
+.logo-icon .bridge-cable {
+  stroke: var(--orange-bright);
+  fill: none;
+}
+
+.logo-icon .bridge-deck {
+  fill: var(--orange);
+}
+
 .logo-text h1 {
   font-family: var(--font-display);
-  font-size: 2.5rem;
-  letter-spacing: 0.15em;
-  color: var(--gold);
+  font-size: 2.8rem;
+  letter-spacing: 0.12em;
+  background: linear-gradient(135deg, var(--orange-bright) 0%, var(--gold) 50%, var(--orange) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   line-height: 1;
   margin: 0;
 }
 
 .tagline {
   font-family: var(--font-display);
-  font-size: 0.75rem;
-  letter-spacing: 0.3em;
+  font-size: 0.8rem;
+  letter-spacing: 0.25em;
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
+.tagline::before {
+  content: '🌉';
+  font-size: 1rem;
+}
+
+/* Super Bowl Badge - Bay Area Edition */
 .super-bowl-badge {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 12px 24px;
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(212, 175, 55, 0.05) 100%);
-  border: 2px solid var(--gold);
-  border-radius: 8px;
+  padding: 16px 28px;
+  background: linear-gradient(
+    135deg, 
+    rgba(192, 64, 0, 0.2) 0%, 
+    rgba(30, 77, 107, 0.15) 50%,
+    rgba(192, 64, 0, 0.1) 100%
+  );
+  border: 2px solid var(--orange);
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.super-bowl-badge::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 107, 53, 0.2),
+    transparent
+  );
+  animation: badge-shine 3s ease-in-out infinite;
+}
+
+@keyframes badge-shine {
+  0%, 100% { left: -100%; }
+  50% { left: 100%; }
 }
 
 .badge-text {
   font-family: var(--font-display);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   letter-spacing: 0.2em;
   color: var(--gold);
 }
 
 .badge-number {
   font-family: var(--font-display);
-  font-size: 2rem;
-  color: var(--gold);
+  font-size: 2.5rem;
+  background: linear-gradient(180deg, var(--gold-light) 0%, var(--gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   line-height: 1;
 }
 
-/* Hero Quote */
+.badge-location {
+  font-family: var(--font-heading);
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  color: var(--bay-teal);
+  margin-top: 4px;
+  text-transform: uppercase;
+}
+
+/* Hero Quote - Bay Area vibe */
 .hero-quote {
   position: relative;
   z-index: 10;
   text-align: center;
   padding: 48px 24px;
-  background: linear-gradient(180deg, transparent 0%, rgba(212, 175, 55, 0.03) 50%, transparent 100%);
+  background: linear-gradient(
+    180deg, 
+    transparent 0%, 
+    rgba(192, 64, 0, 0.03) 30%,
+    rgba(30, 77, 107, 0.03) 70%,
+    transparent 100%
+  );
 }
 
 .hero-quote blockquote {
@@ -82,7 +154,7 @@
   font-size: 1.5rem;
   font-style: italic;
   color: var(--text-secondary);
-  max-width: 700px;
+  max-width: 750px;
   margin: 0 auto;
   position: relative;
 }
@@ -92,8 +164,8 @@
   content: '"';
   font-family: var(--font-display);
   font-size: 4rem;
-  color: var(--gold);
-  opacity: 0.3;
+  color: var(--orange);
+  opacity: 0.4;
   position: absolute;
 }
 
@@ -105,6 +177,27 @@
 .hero-quote blockquote::after {
   bottom: -50px;
   right: -40px;
+}
+
+.location-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  padding: 8px 16px;
+  background: rgba(30, 77, 107, 0.2);
+  border: 1px solid rgba(45, 212, 191, 0.3);
+  border-radius: 20px;
+  font-family: var(--font-heading);
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  color: var(--bay-teal);
+  text-transform: uppercase;
+}
+
+.location-tag svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* Main Content */
@@ -138,8 +231,8 @@
 .section-number {
   font-family: var(--font-display);
   font-size: 3rem;
-  color: var(--gold);
-  opacity: 0.3;
+  color: var(--orange);
+  opacity: 0.4;
   line-height: 1;
 }
 
@@ -159,9 +252,14 @@
   align-items: center;
   margin-top: 32px;
   padding: 24px;
-  background: linear-gradient(135deg, rgba(26, 26, 46, 0.5) 0%, rgba(10, 10, 10, 0.5) 100%);
-  border: 1px solid rgba(212, 175, 55, 0.15);
-  border-radius: 12px;
+  background: linear-gradient(
+    135deg, 
+    rgba(26, 35, 50, 0.6) 0%, 
+    rgba(10, 15, 20, 0.6) 100%
+  );
+  border: 1px solid rgba(192, 64, 0, 0.2);
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
 }
 
 .controls-row {
@@ -172,11 +270,49 @@
 
 .control-hint {
   font-family: var(--font-display);
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   letter-spacing: 0.15em;
   color: var(--text-secondary);
   margin-top: 20px;
   text-align: center;
+}
+
+/* Vertical divider between record and mic buttons */
+.input-divider-vertical {
+  width: 1px;
+  height: 40px;
+  background: linear-gradient(180deg, transparent, rgba(192, 64, 0, 0.4), transparent);
+}
+
+/* Chat section */
+.chat-section {
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* Divider in chat section */
+.chat-section .input-divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 16px 0;
+}
+
+.chat-section .input-divider span {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chat-section .input-divider::before,
+.chat-section .input-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(192, 64, 0, 0.3), transparent);
 }
 
 /* Error Banner */
@@ -216,13 +352,13 @@
   opacity: 1;
 }
 
-/* Footer */
+/* Footer - Bay Area */
 .footer {
   position: relative;
   z-index: 10;
   padding: 32px 48px;
-  border-top: 1px solid rgba(212, 175, 55, 0.2);
-  background: linear-gradient(180deg, rgba(10, 10, 10, 0.8) 0%, rgba(10, 10, 10, 0.95) 100%);
+  border-top: 1px solid rgba(192, 64, 0, 0.2);
+  background: linear-gradient(180deg, rgba(10, 15, 20, 0.9) 0%, rgba(10, 15, 20, 0.98) 100%);
 }
 
 .footer-content {
@@ -234,30 +370,61 @@
 
 .footer-content p {
   font-family: var(--font-display);
-  font-size: 0.7rem;
-  letter-spacing: 0.3em;
+  font-size: 0.75rem;
+  letter-spacing: 0.25em;
   color: var(--text-secondary);
 }
 
 .footer-decoration {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
 }
 
 .footer-decoration span {
-  width: 8px;
-  height: 8px;
-  background: var(--gold);
-  transform: rotate(45deg);
-  opacity: 0.5;
+  display: block;
+  background: var(--orange);
+}
+
+/* Golden Gate Bridge mini silhouette */
+.footer-decoration span:nth-child(1),
+.footer-decoration span:nth-child(3) {
+  width: 4px;
+  height: 20px;
+  border-radius: 2px;
 }
 
 .footer-decoration span:nth-child(2) {
-  opacity: 0.8;
+  width: 40px;
+  height: 3px;
+  border-radius: 2px;
+  position: relative;
 }
 
-.footer-decoration span:nth-child(3) {
-  opacity: 0.3;
+.footer-decoration span:nth-child(2)::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 2px;
+  background: var(--orange);
+  border-radius: 2px;
+}
+
+.bay-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(30, 77, 107, 0.3);
+  border: 1px solid rgba(45, 212, 191, 0.2);
+  border-radius: 4px;
+  font-family: var(--font-heading);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  color: var(--bay-teal);
 }
 
 /* Responsive */
@@ -276,7 +443,7 @@
   }
   
   .logo-text h1 {
-    font-size: 1.8rem;
+    font-size: 2rem;
   }
 }
 
@@ -292,6 +459,10 @@
   
   .hero-quote blockquote::before,
   .hero-quote blockquote::after {
+    display: none;
+  }
+  
+  .tagline::before {
     display: none;
   }
 }

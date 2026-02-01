@@ -24,7 +24,7 @@ function ArticleDisplay({ articles, isProcessing }) {
             </svg>
           </div>
           <h3>Ready for Analysis</h3>
-          <p>Click the microphone and ask about the play. Our AI will generate real-time insights and analysis.</p>
+          <p>Use the microphone or type your question below. Our AI will generate real-time insights and analysis.</p>
           <div className="empty-features">
             <div className="feature">
               <span className="feature-icon">📊</span>
@@ -58,6 +58,12 @@ function ArticleDisplay({ articles, isProcessing }) {
                 </div>
                 <div className="article-badge">AI GENERATED</div>
               </div>
+              {article.query && (
+                <div className="article-query">
+                  <span className="query-label">Q:</span>
+                  <span className="query-text">{article.query}</span>
+                </div>
+              )}
               <div className="article-content">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {article.content}
