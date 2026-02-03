@@ -337,7 +337,11 @@ function App() {
               <span className="section-number">02</span>
               <h2>AI INSIGHTS</h2>
             </div>
-            <ArticleDisplay articles={articles} isProcessing={isProcessing} />
+            <ArticleDisplay 
+              articles={articles} 
+              isProcessing={isProcessing} 
+              videoPath={recordingStatus?.current_video}
+            />
           </motion.section>
         </div>
       </main>

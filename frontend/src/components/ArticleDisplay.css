@@ -253,7 +253,8 @@
   padding: 16px 20px;
   border-top: 1px solid rgba(192, 64, 0, 0.15);
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
 }
 
 .share-buttons {
@@ -284,6 +285,69 @@
 .share-btn svg {
   width: 16px;
   height: 16px;
+}
+
+/* X Button States */
+.share-btn.twitter:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.share-btn.twitter.posting {
+  background: rgba(29, 161, 242, 0.2);
+  border-color: rgba(29, 161, 242, 0.5);
+}
+
+.share-btn.twitter.success {
+  background: rgba(0, 186, 124, 0.2);
+  border-color: rgba(0, 186, 124, 0.6);
+  color: #00ba7c;
+}
+
+.share-btn.twitter.error {
+  background: rgba(244, 67, 54, 0.2);
+  border-color: rgba(244, 67, 54, 0.6);
+  color: #f44336;
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(29, 161, 242, 0.3);
+  border-top: 2px solid #1da1f2;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.post-error {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  color: #f44336;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(244, 67, 54, 0.1);
+  border-radius: 4px;
+}
+
+.post-success {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  color: #00ba7c;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 186, 124, 0.1);
+  border-radius: 4px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 /* Processing Card */
