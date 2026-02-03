@@ -63,3 +63,4 @@ temp/
 
 # Frontend
 /frontend/node_modules/
+/frontend/.vite/
